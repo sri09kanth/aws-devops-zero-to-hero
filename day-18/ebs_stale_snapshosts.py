@@ -26,6 +26,26 @@ def lambda_handler(event, context):
         snapshot_age = (context.aws_request_time.timestamp() - snapshot['StartTime'].timestamp()) / (60 * 60 * 24)
 
 
+
+        if snapshot_age > retention_days:
+            if not volume_id:
+                # Delete the snapshot if it's not attached to any volume
+                ec2.delete_snapshot(SnapshotId=snapshot_id)
+                sns.publish(
+                    TopicArn='YOUR_SNS_TOPIC_ARN',
+                    Message=f"Deleted EBS snapshot {snapshot_id} as it was not attached to any volume and exceeded the retention period."
+                )
+            else:
+                # Check if the volume still exists
+                try:
+                    volume_response = ec2.describe_volumes(VolumeIds=[volume_id])
+                    if not volume_response['Volumes'][0]['Attachments']:
+                        ec2.delete_snapshot(SnapshotId=snapshot_id)
+                        sns.publish(
+                            TopicArn='YOUR_SNS_TOPIC_ARN',
+                            Message=f"Deleted EBS snapshot {snapshot_id} as it was taken from a volume not attached to any running instance and exceeded the retention period."
+                        )
+                        
         # if not volume_id:
         #     # Delete the snapshot if it's not attached to any volume
         #     ec2.delete_snapshot(SnapshotId=snapshot_id)
