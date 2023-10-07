@@ -6,6 +6,9 @@ def lambda_handler(event, context):
     # Get all EBS snapshots
     response = ec2.describe_snapshots(OwnerIds=['self'])
 
+    # Set your retention policy here (e.g., retain snapshots for 7 days)
+    retention_days = 7
+
     # Get all active EC2 instance IDs
     instances_response = ec2.describe_instances(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
     active_instance_ids = set()
@@ -18,6 +21,10 @@ def lambda_handler(event, context):
     for snapshot in response['Snapshots']:
         snapshot_id = snapshot['SnapshotId']
         volume_id = snapshot.get('VolumeId')
+
+        # Check if the snapshot is older than the retention period
+        snapshot_age = (context.aws_request_time.timestamp() - snapshot['StartTime'].timestamp()) / (60 * 60 * 24)
+
 
         if not volume_id:
             # Delete the snapshot if it's not attached to any volume
