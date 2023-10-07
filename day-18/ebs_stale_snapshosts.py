@@ -45,7 +45,15 @@ def lambda_handler(event, context):
                             TopicArn='YOUR_SNS_TOPIC_ARN',
                             Message=f"Deleted EBS snapshot {snapshot_id} as it was taken from a volume not attached to any running instance and exceeded the retention period."
                         )
-                        
+
+                except ec2.exceptions.ClientError as e:
+                    if e.response['Error']['Code'] == 'InvalidVolume.NotFound':
+                        # The volume associated with the snapshot is not found (it might have been deleted)
+                        ec2.delete_snapshot(SnapshotId=snapshot_id)
+                        sns.publish(
+                            TopicArn='YOUR_SNS_TOPIC_ARN',
+                            Message=f"Deleted EBS snapshot {snapshot_id} as its associated volume was not found and exceeded the retention period."
+                        )                       
         # if not volume_id:
         #     # Delete the snapshot if it's not attached to any volume
         #     ec2.delete_snapshot(SnapshotId=snapshot_id)
